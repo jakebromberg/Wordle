@@ -206,6 +206,7 @@ struct Benchmark: AsyncParsableCommand {
         let originalSolver = OriginalWordleSolver(words: words)
         let parallelOriginalSolver = ParallelOriginalSolver(words: words)
         let bitmaskSolver = BitmaskWordleSolver(words: words)
+        let simdSolver = SIMDWordleSolver(words: words)
         let adaptiveSolver = AdaptiveWordleSolver(words: words)
         let composableSolver = ComposableWordleSolver(words: words)
 
@@ -270,6 +271,14 @@ struct Benchmark: AsyncParsableCommand {
                 }),
                 ("Bitmask (Async)", {
                     let results = await bitmaskSolver.solve(
+                        excluded: scenario.excluded,
+                        green: scenario.green,
+                        yellow: scenario.yellow
+                    )
+                    return results.count
+                }),
+                ("SIMD", {
+                    let results = simdSolver.solve(
                         excluded: scenario.excluded,
                         green: scenario.green,
                         yellow: scenario.yellow
