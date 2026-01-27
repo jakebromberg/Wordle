@@ -173,6 +173,15 @@ struct Benchmark: AsyncParsableCommand {
     @Flag(name: .shortAndLong, help: "Show only summary table.")
     var summary: Bool = false
 
+    @Flag(name: .long, help: "Output results as JSON.")
+    var json: Bool = false
+
+    @Flag(name: .long, help: "Output results as CSV.")
+    var csv: Bool = false
+
+    @Option(name: [.short, .customLong("output")], help: "Output file path (default: benchmark.json or benchmark.csv).")
+    var output: String?
+
     func run() async throws {
         let wordStrings = try WordList.loadBundled()
         let words = wordStrings.compactMap(Word.init)
@@ -222,9 +231,13 @@ struct Benchmark: AsyncParsableCommand {
             ),
         ]
 
+        var allResults: [BenchmarkResult] = []
+
         for scenario in scenarios {
-            print("Scenario: \(scenario.name)")
-            print("-" + String(repeating: "-", count: scenario.name.count))
+            if !json && !csv {
+                print("Scenario: \(scenario.name)")
+                print("-" + String(repeating: "-", count: scenario.name.count))
+            }
 
             // Warm up
             _ = await originalSolver.solve(
@@ -280,17 +293,89 @@ struct Benchmark: AsyncParsableCommand {
                 let avg = times.reduce(0, +) / Double(times.count)
                 let sorted = times.sorted()
                 let median = sorted[sorted.count / 2]
-                let min = sorted.first!
-                let max = sorted.last!
+                let minTime = sorted.first!
+                let maxTime = sorted.last!
 
-                print("  \(name.padding(toLength: 22, withPad: " ", startingAt: 0)) "
-                    + "avg: \(String(format: "%8.2f", avg))µs  "
-                    + "med: \(String(format: "%8.2f", median))µs  "
-                    + "min: \(String(format: "%8.2f", min))µs  "
-                    + "max: \(String(format: "%8.2f", max))µs  "
-                    + "results: \(resultCount)")
+                let result = BenchmarkResult(
+                    scenario: scenario.name,
+                    solver: name,
+                    avgUs: avg,
+                    medianUs: median,
+                    minUs: minTime,
+                    maxUs: maxTime,
+                    resultCount: resultCount
+                )
+                allResults.append(result)
+
+                if !json && !csv {
+                    print("  \(name.padding(toLength: 22, withPad: " ", startingAt: 0)) "
+                        + "avg: \(String(format: "%8.2f", avg))µs  "
+                        + "med: \(String(format: "%8.2f", median))µs  "
+                        + "min: \(String(format: "%8.2f", minTime))µs  "
+                        + "max: \(String(format: "%8.2f", maxTime))µs  "
+                        + "results: \(resultCount)")
+                }
             }
-            print()
+            if !json && !csv {
+                print()
+            }
+        }
+
+        // Export results
+        if json {
+            try exportBenchmarkJSON(results: allResults, wordCount: words.count)
+        } else if csv {
+            try exportBenchmarkCSV(results: allResults, wordCount: words.count)
         }
     }
+
+    private func exportBenchmarkJSON(results: [BenchmarkResult], wordCount: Int) throws {
+        let output = BenchmarkOutput(
+            wordCount: wordCount,
+            iterations: iterations,
+            results: results
+        )
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(output)
+
+        let path = self.output ?? "benchmark.json"
+        let url = URL(fileURLWithPath: path)
+        try data.write(to: url)
+        print("Wrote benchmark results to \(path)")
+    }
+
+    private func exportBenchmarkCSV(results: [BenchmarkResult], wordCount: Int) throws {
+        var lines: [String] = []
+        lines.append("scenario,solver,avg_us,median_us,min_us,max_us,result_count")
+
+        for result in results {
+            lines.append("\(result.scenario),\(result.solver),\(result.avgUs),\(result.medianUs),\(result.minUs),\(result.maxUs),\(result.resultCount)")
+        }
+
+        let csvContent = lines.joined(separator: "\n")
+        let path = self.output ?? "benchmark.csv"
+        let url = URL(fileURLWithPath: path)
+        try csvContent.write(to: url, atomically: true, encoding: .utf8)
+        print("Wrote benchmark results to \(path)")
+    }
+}
+
+// MARK: - Benchmark Output Types
+
+private struct BenchmarkResult: Encodable {
+    let scenario: String
+    let solver: String
+    let avgUs: Double
+    let medianUs: Double
+    let minUs: Double
+    let maxUs: Double
+    let resultCount: Int
+}
+
+private struct BenchmarkOutput: Encodable {
+    let wordCount: Int
+    let iterations: Int
+    let results: [BenchmarkResult]
 }
