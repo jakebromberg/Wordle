@@ -194,18 +194,16 @@ The optimized solvers use:
 
 ### Benchmark Results
 
-Median times in microseconds (8,506 words, 200 iterations):
+Median times in microseconds (8,506 words, 50 iterations):
 
 | Solver | No constraints | Excluded only | Green only | Yellow only | Mixed | Heavy |
 |--------|----------------|---------------|------------|-------------|-------|-------|
-| Original | 671 | 905 | 562 | 559 | 709 | 916 |
-| Bitmask | 45 | 41 | 8 | 6 | 10 | 6 |
-| PositionAware | 42 | 42 | 9 | 7 | 10 | 6 |
-| Adaptive | 72 | 62 | 15 | 13 | 17 | 13 |
-| Composable | 81 | 69 | 9 | 8 | 11 | 6 |
-| Static (Macro) | 81 | 73 | 8 | 7 | 10 | 6 |
+| Original | 1083 | 2927 | 1293 | 1224 | 2222 | 3763 |
+| Bitmask (Async) | 300 | 210 | 329 | 69 | 231 | 91 |
+| Adaptive | 295 | 232 | 293 | 67 | 180 | 87 |
+| Static (Macro) | 1328 | 1150 | 339 | 85 | 250 | 92 |
 
-The macro-based `StaticWordleFilter` matches hand-tuned solver performance for constrained queries while maintaining composability.
+The async solvers provide ~10-40x speedup over the reference implementation. The `Adaptive` solver is recommended for general use as it automatically selects the best strategy based on constraints.
 
 ## Architecture
 

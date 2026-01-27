@@ -156,7 +156,6 @@ struct Benchmark: AsyncParsableCommand {
 
         let originalSolver = OriginalWordleSolver(words: words)
         let bitmaskSolver = BitmaskWordleSolver(words: words)
-        let positionSolver = PositionAwareWordleSolver(words: words)
         let adaptiveSolver = AdaptiveWordleSolver(words: words)
         let composableSolver = ComposableWordleSolver(words: words)
 
@@ -196,6 +195,8 @@ struct Benchmark: AsyncParsableCommand {
                 correctLettersInWrongPlaces: scenario.yellow
             )
 
+            let staticFilter = staticFilters[scenario.name]!
+
             let solvers: [(String, () async -> Int)] = [
                 ("Original", {
                     let results = await originalSolver.getSolutions(
@@ -205,40 +206,8 @@ struct Benchmark: AsyncParsableCommand {
                     )
                     return results.count
                 }),
-                ("Bitmask", {
-                    let results = bitmaskSolver.solve(
-                        excluded: scenario.excluded,
-                        green: scenario.green,
-                        yellow: scenario.yellow
-                    )
-                    return results.count
-                }),
-                ("Bitmask (TaskGroup)", {
+                ("Bitmask (Async)", {
                     let results = await bitmaskSolver.solveAsync(
-                        excluded: scenario.excluded,
-                        green: scenario.green,
-                        yellow: scenario.yellow
-                    )
-                    return results.count
-                }),
-                ("PositionAware", {
-                    let results = positionSolver.solve(
-                        excluded: scenario.excluded,
-                        green: scenario.green,
-                        yellow: scenario.yellow
-                    )
-                    return results.count
-                }),
-                ("PositionAware (GCD)", {
-                    let results = positionSolver.solveParallel(
-                        excluded: scenario.excluded,
-                        green: scenario.green,
-                        yellow: scenario.yellow
-                    )
-                    return results.count
-                }),
-                ("PositionAware (Task)", {
-                    let results = await positionSolver.solveAsync(
                         excluded: scenario.excluded,
                         green: scenario.green,
                         yellow: scenario.yellow
@@ -253,42 +222,13 @@ struct Benchmark: AsyncParsableCommand {
                     )
                     return results.count
                 }),
-                ("Composable", {
-                    let results = composableSolver.solve(
-                        excluded: scenario.excluded,
-                        green: scenario.green,
-                        yellow: scenario.yellow
-                    )
-                    return results.count
-                }),
-                ("Composable (Async)", {
-                    let results = await composableSolver.solveAsync(
-                        excluded: scenario.excluded,
-                        green: scenario.green,
-                        yellow: scenario.yellow
-                    )
-                    return results.count
-                }),
-                ("Custom Filter", {
-                    let filter = WordleFilter(
-                        excluded: scenario.excluded,
-                        green: scenario.green,
-                        yellow: scenario.yellow
-                    )
-                    let results = composableSolver.solve(filter: filter)
-                    return results.count
-                }),
-            ]
-
-            let staticFilter = staticFilters[scenario.name]!
-            let allSolvers = solvers + [
                 ("Static (Macro)", {
                     let results = composableSolver.solve(filter: staticFilter)
                     return results.count
-                })
+                }),
             ]
 
-            for (name, run) in allSolvers {
+            for (name, run) in solvers {
                 var times: [Double] = []
                 var resultCount = 0
 
