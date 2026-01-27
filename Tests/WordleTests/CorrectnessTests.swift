@@ -166,6 +166,56 @@ struct CorrectnessTests {
         #expect(yellow2["a"] == 0b01010)
     }
 
+    // MARK: - Turbo Solver Tests
+
+    @Test("Turbo solver produces same results", arguments: scenarios)
+    func turboSolverProducesSameResults(scenario: TestScenario) async throws {
+        let turboSolver = TurboWordleSolver(words: words)
+        let referenceSolver = OriginalWordleSolver(words: words)
+
+        let yellowDict = Dictionary(uniqueKeysWithValues: scenario.yellow.map { ($0, UInt8(0)) })
+        let turboResults = turboSolver.solve(
+            excluded: scenario.excluded,
+            green: scenario.green,
+            yellow: yellowDict
+        )
+
+        let referenceResults = await referenceSolver.solve(
+            excluded: scenario.excluded,
+            green: scenario.green,
+            yellow: scenario.yellow
+        )
+
+        let turboSet = Set(turboResults.map(\.raw))
+        let referenceSet = Set(referenceResults.map(\.raw))
+
+        #expect(turboSet == referenceSet, "Turbo != Reference")
+    }
+
+    @Test("SIMD Turbo solver produces same results", arguments: scenarios)
+    func simdTurboSolverProducesSameResults(scenario: TestScenario) async throws {
+        let simdTurboSolver = SIMDTurboSolver(words: words)
+        let referenceSolver = OriginalWordleSolver(words: words)
+
+        let yellowDict = Dictionary(uniqueKeysWithValues: scenario.yellow.map { ($0, UInt8(0)) })
+        let simdTurboResults = simdTurboSolver.solve(
+            excluded: scenario.excluded,
+            green: scenario.green,
+            yellow: yellowDict
+        )
+
+        let referenceResults = await referenceSolver.solve(
+            excluded: scenario.excluded,
+            green: scenario.green,
+            yellow: scenario.yellow
+        )
+
+        let simdTurboSet = Set(simdTurboResults.map(\.raw))
+        let referenceSet = Set(referenceResults.map(\.raw))
+
+        #expect(simdTurboSet == referenceSet, "SIMD Turbo != Reference")
+    }
+
     // MARK: - Word Tests
 
     @Test("Word.contains works correctly")

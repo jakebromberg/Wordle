@@ -209,6 +209,8 @@ struct Benchmark: AsyncParsableCommand {
         let simdSolver = SIMDWordleSolver(words: words)
         let adaptiveSolver = AdaptiveWordleSolver(words: words)
         let composableSolver = ComposableWordleSolver(words: words)
+        let turboSolver = TurboWordleSolver(words: words)
+        let simdTurboSolver = SIMDTurboSolver(words: words)
 
         // Pre-computed static filters using compile-time macros
         let staticFilters: [String: StaticWordleFilter] = [
@@ -297,6 +299,24 @@ struct Benchmark: AsyncParsableCommand {
                 }),
                 ("Static (Macro)", {
                     let results = composableSolver.solve(filter: staticFilter)
+                    return results.count
+                }),
+                ("Turbo (Indexed)", {
+                    let yellowDict = Dictionary(uniqueKeysWithValues: scenario.yellow.map { ($0, UInt8(0)) })
+                    let results = turboSolver.solve(
+                        excluded: scenario.excluded,
+                        green: scenario.green,
+                        yellow: yellowDict
+                    )
+                    return results.count
+                }),
+                ("SIMD Turbo", {
+                    let yellowDict = Dictionary(uniqueKeysWithValues: scenario.yellow.map { ($0, UInt8(0)) })
+                    let results = simdTurboSolver.solve(
+                        excluded: scenario.excluded,
+                        green: scenario.green,
+                        yellow: yellowDict
+                    )
                     return results.count
                 }),
             ]
