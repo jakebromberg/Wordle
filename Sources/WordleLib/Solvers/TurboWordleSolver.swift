@@ -220,6 +220,30 @@ public final class TurboWordleSolver: @unchecked Sendable {
         }
         return mask
     }
+
+    // MARK: - Convenience Helpers
+
+    /// Create a position bitmask from positions where a letter cannot be.
+    /// Example: `forbiddenPositions(1, 2)` returns `0b00110`
+    public static func forbiddenPositions(_ positions: Int...) -> UInt8 {
+        var mask: UInt8 = 0
+        for pos in positions where pos >= 0 && pos <= 4 {
+            mask |= 1 << pos
+        }
+        return mask
+    }
+
+    /// Create yellow constraints from guesses.
+    /// Example: After guessing "CRANE" with 'A' yellow at position 2:
+    /// `yellowFromGuess([("a", 2)])` returns `["a": 0b00100]`
+    public static func yellowFromGuess(_ letters: [(Character, Int)]) -> [Character: UInt8] {
+        var result: [Character: UInt8] = [:]
+        for (letter, position) in letters where position >= 0 && position <= 4 {
+            let lower = Character(letter.lowercased())
+            result[lower, default: 0] |= 1 << position
+        }
+        return result
+    }
 }
 
 // MARK: - SIMD-Enhanced Turbo Solver

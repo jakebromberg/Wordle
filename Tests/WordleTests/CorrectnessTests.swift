@@ -124,49 +124,25 @@ struct CorrectnessTests {
         #expect(sequentialSet == taskGroupSet, "Sequential != TaskGroup")
     }
 
-    @Test("Adaptive solver produces same results", arguments: scenarios)
-    func adaptiveSolverProducesSameResults(scenario: TestScenario) async throws {
-        let adaptiveSolver = AdaptiveWordleSolver(words: words)
-        let referenceSolver = OriginalWordleSolver(words: words)
+    // MARK: - Turbo Solver Tests
 
-        let yellowDict = Dictionary(uniqueKeysWithValues: scenario.yellow.map { ($0, UInt8(0)) })
-        let adaptiveResults = await adaptiveSolver.solve(
-            excluded: scenario.excluded,
-            green: scenario.green,
-            yellow: yellowDict
-        )
-
-        let referenceResults = await referenceSolver.solve(
-            excluded: scenario.excluded,
-            green: scenario.green,
-            yellow: scenario.yellow
-        )
-
-        let adaptiveSet = Set(adaptiveResults.map(\.raw))
-        let referenceSet = Set(referenceResults.map(\.raw))
-
-        #expect(adaptiveSet == referenceSet, "Adaptive != Reference")
+    @Test("Turbo solver helper: forbiddenPositions")
+    func turboSolverForbiddenPositionsHelper() {
+        #expect(TurboWordleSolver.forbiddenPositions(0) == 0b00001)
+        #expect(TurboWordleSolver.forbiddenPositions(1, 2) == 0b00110)
+        #expect(TurboWordleSolver.forbiddenPositions(0, 4) == 0b10001)
     }
 
-    @Test("Adaptive solver helper: forbiddenPositions")
-    func adaptiveSolverForbiddenPositionsHelper() {
-        #expect(AdaptiveWordleSolver.forbiddenPositions(0) == 0b00001)
-        #expect(AdaptiveWordleSolver.forbiddenPositions(1, 2) == 0b00110)
-        #expect(AdaptiveWordleSolver.forbiddenPositions(0, 4) == 0b10001)
-    }
-
-    @Test("Adaptive solver helper: yellowFromGuess")
-    func adaptiveSolverYellowFromGuessHelper() {
-        let yellow = AdaptiveWordleSolver.yellowFromGuess([("a", 2), ("e", 3)])
+    @Test("Turbo solver helper: yellowFromGuess")
+    func turboSolverYellowFromGuessHelper() {
+        let yellow = TurboWordleSolver.yellowFromGuess([("a", 2), ("e", 3)])
         #expect(yellow["a"] == 0b00100)
         #expect(yellow["e"] == 0b01000)
 
         // Test combining multiple positions for same letter
-        let yellow2 = AdaptiveWordleSolver.yellowFromGuess([("a", 1), ("a", 3)])
+        let yellow2 = TurboWordleSolver.yellowFromGuess([("a", 1), ("a", 3)])
         #expect(yellow2["a"] == 0b01010)
     }
-
-    // MARK: - Turbo Solver Tests
 
     @Test("Turbo solver produces same results", arguments: scenarios)
     func turboSolverProducesSameResults(scenario: TestScenario) async throws {

@@ -44,7 +44,7 @@ swift run wordle benchmark --csv -o benchmark.csv
 | `--excluded` | `-e` | Gray letters (not in word) | `-e "qxz"` |
 | `--green` | `-g` | Green letters (correct position) | `-g "0:s,4:e"` |
 | `--yellow` | `-y` | Yellow letters (wrong position) | `-y "ae"` |
-| `--solver` | `-s` | Solver implementation | `-s adaptive` |
+| `--solver` | `-s` | Solver implementation | `-s turbo` |
 | `--json` | | Output as JSON | `--json` |
 | `--output` | `-o` | Output file path | `-o results.json` |
 
@@ -52,7 +52,7 @@ swift run wordle benchmark --csv -o benchmark.csv
 
 | Name | Description |
 |------|-------------|
-| `adaptive` | Turbo-powered solver with indexing (default, fastest) |
+| `turbo` | Packed words + first-letter indexing (default, fastest) |
 | `original` | Reference implementation, protocol-based |
 | `bitmask` | Bitmask-based filtering |
 | `position` | Full yellow position constraint support |
@@ -84,18 +84,18 @@ import WordleLib
 // Load word list
 let words = try WordList.loadBundled().compactMap(Word.init)
 
-// Create solver (adaptive is fastest)
-let solver = AdaptiveWordleSolver(words: words)
+// Create solver (turbo is fastest)
+let solver = TurboWordleSolver(words: words)
 
 // Query with constraints
-let results = await solver.solve(
+let results = solver.solve(
     excluded: Set("qxz"),
     green: [0: "s", 4: "e"],
     yellow: ["a": 0b00110]  // 'a' not at positions 1 or 2
 )
 
 // Use helpers to build yellow constraints
-let yellow = AdaptiveWordleSolver.yellowFromGuess([("r", 1), ("a", 2)])
+let yellow = TurboWordleSolver.yellowFromGuess([("r", 1), ("a", 2)])
 ```
 
 ### Composable Filter Architecture
@@ -166,34 +166,21 @@ Median times in microseconds (8,506 words, 50 iterations):
 | Original | 688 | 907 | 569 | 745 | 973 |
 | Bitmask | 80 | 61 | 14 | 16 | 13 |
 | SIMD | 57 | 52 | 10 | 12 | 10 |
-| Turbo (Indexed) | 47 | 45 | 2 | 4 | 2 |
-| **Adaptive** | **57** | **52** | **2** | **4** | **2** |
+| **Turbo** | **47** | **45** | **2** | **4** | **2** |
 
-*Adaptive selects SIMD for no constraints/excluded only (no indexing benefit), Turbo for green/mixed/heavy (indexing wins).*
-
-The **Adaptive** solver delivers:
-- **3µs** for green-only queries (when you know some correct letters)
-- **2µs** for heavy constraints (late-game scenarios)
+The **Turbo** solver delivers:
+- **2-4µs** for typical Wordle queries (when you know some green letters)
 - **200-500x speedup** over the original implementation
+- Fastest in every scenario due to packed words and first-letter indexing
 
-### Adaptive Solver Selection
+### Why Turbo is Fastest
 
-The Adaptive solver automatically selects the optimal backend based on constraint characteristics:
+**TurboWordleSolver** combines multiple optimization techniques:
 
-| Condition | Backend | Reason |
-|-----------|---------|--------|
-| `green[0]` is known | Turbo | First-letter indexing searches only ~1/26th of words |
-| 8+ letters excluded | Turbo | Bucket skipping avoids searching excluded first letters |
-| Otherwise | SIMD | Pure vectorized throughput with no index overhead |
-
-**Turbo** excels when its indexing reduces the search space:
 - **First-letter indexing**: When `green[0]` is known, only ~327 words searched instead of 8,506
 - **Packed word comparison**: All 5 green positions checked with a single `(packed & mask) == value` operation
 - **Bucket skipping**: Entire first-letter buckets skipped if first letter is excluded
-
-**SIMD** excels for full scans:
-- **Vectorized bitmask checks**: SIMD8<UInt32> processes 8 words simultaneously
-- **No index overhead**: Direct sequential memory access
+- **Cache-friendly layout**: Parallel arrays for packed words and letter masks
 
 ## Project Structure
 
@@ -211,8 +198,7 @@ Sources/
       BitmaskWordleSolver.swift       # Bitmask-based solver
       PositionAwareWordleSolver.swift # Yellow position tracking
       SIMDWordleSolver.swift          # SIMD-accelerated solver
-      TurboWordleSolver.swift         # Packed words + first-letter indexing
-      AdaptiveWordleSolver.swift      # Default solver (selects Turbo or SIMD)
+      TurboWordleSolver.swift         # Default solver (packed words + indexing)
       ComposableWordleSolver.swift    # Composable filter architecture
     Filters/
       WordFilter.swift        # Filter protocol and basic filters

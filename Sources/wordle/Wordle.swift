@@ -29,7 +29,7 @@ struct Solve: AsyncParsableCommand {
     var yellow: String = ""
 
     @Option(name: [.short, .customLong("solver")], help: "Solver implementation to use.")
-    var solver: SolverType = .adaptive
+    var solver: SolverType = .turbo
 
     @Flag(name: .shortAndLong, help: "Show detailed timing information.")
     var verbose: Bool = false
@@ -71,11 +71,11 @@ struct Solve: AsyncParsableCommand {
         case .position:
             let solver = PositionAwareWordleSolver(words: words)
             results = await solver.solve(excluded: excludedSet, green: greenDict, yellow: yellowSet)
-        case .adaptive:
-            let solver = AdaptiveWordleSolver(words: words)
+        case .turbo:
+            let solver = TurboWordleSolver(words: words)
             // Convert Set<Character> to [Character: UInt8] with no position constraints
             let yellowDict = Dictionary(uniqueKeysWithValues: yellowSet.map { ($0, UInt8(0)) })
-            results = await solver.solve(excluded: excludedSet, green: greenDict, yellow: yellowDict)
+            results = solver.solve(excluded: excludedSet, green: greenDict, yellow: yellowDict)
         case .composable:
             let solver = ComposableWordleSolver(words: words)
             results = await solver.solve(excluded: excludedSet, green: greenDict, yellow: yellowSet)
@@ -151,7 +151,7 @@ private struct ConstraintsOutput: Encodable {
 }
 
 enum SolverType: String, ExpressibleByArgument, CaseIterable {
-    case adaptive
+    case turbo
     case bitmask
     case position
     case original
@@ -207,7 +207,6 @@ struct Benchmark: AsyncParsableCommand {
         let parallelOriginalSolver = ParallelOriginalSolver(words: words)
         let bitmaskSolver = BitmaskWordleSolver(words: words)
         let simdSolver = SIMDWordleSolver(words: words)
-        let adaptiveSolver = AdaptiveWordleSolver(words: words)
         let composableSolver = ComposableWordleSolver(words: words)
         let turboSolver = TurboWordleSolver(words: words)
         let simdTurboSolver = SIMDTurboSolver(words: words)
@@ -282,15 +281,6 @@ struct Benchmark: AsyncParsableCommand {
                 ("SIMD", {
                     let yellowDict = Dictionary(uniqueKeysWithValues: scenario.yellow.map { ($0, UInt8(0)) })
                     let results = simdSolver.solve(
-                        excluded: scenario.excluded,
-                        green: scenario.green,
-                        yellow: yellowDict
-                    )
-                    return results.count
-                }),
-                ("Adaptive", {
-                    let yellowDict = Dictionary(uniqueKeysWithValues: scenario.yellow.map { ($0, UInt8(0)) })
-                    let results = await adaptiveSolver.solve(
                         excluded: scenario.excluded,
                         green: scenario.green,
                         yellow: yellowDict
