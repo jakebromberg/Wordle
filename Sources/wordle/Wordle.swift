@@ -73,7 +73,9 @@ struct Solve: AsyncParsableCommand {
             results = await solver.solve(excluded: excludedSet, green: greenDict, yellow: yellowSet)
         case .adaptive:
             let solver = AdaptiveWordleSolver(words: words)
-            results = await solver.solve(excluded: excludedSet, green: greenDict, yellow: yellowSet)
+            // Convert Set<Character> to [Character: UInt8] with no position constraints
+            let yellowDict = Dictionary(uniqueKeysWithValues: yellowSet.map { ($0, UInt8(0)) })
+            results = await solver.solve(excluded: excludedSet, green: greenDict, yellow: yellowDict)
         case .composable:
             let solver = ComposableWordleSolver(words: words)
             results = await solver.solve(excluded: excludedSet, green: greenDict, yellow: yellowSet)
@@ -266,10 +268,11 @@ struct Benchmark: AsyncParsableCommand {
                     return results.count
                 }),
                 ("Adaptive", {
+                    let yellowDict = Dictionary(uniqueKeysWithValues: scenario.yellow.map { ($0, UInt8(0)) })
                     let results = await adaptiveSolver.solve(
                         excluded: scenario.excluded,
                         green: scenario.green,
-                        yellow: scenario.yellow
+                        yellow: yellowDict
                     )
                     return results.count
                 }),
@@ -308,7 +311,7 @@ struct Benchmark: AsyncParsableCommand {
                 allResults.append(result)
 
                 if !json && !csv {
-                    print("  \(name.padding(toLength: 22, withPad: " ", startingAt: 0)) "
+                    print("  \(name.padding(toLength: 24, withPad: " ", startingAt: 0)) "
                         + "avg: \(String(format: "%8.2f", avg))µs  "
                         + "med: \(String(format: "%8.2f", median))µs  "
                         + "min: \(String(format: "%8.2f", minTime))µs  "

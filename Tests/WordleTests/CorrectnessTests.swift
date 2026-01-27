@@ -129,10 +129,11 @@ struct CorrectnessTests {
         let adaptiveSolver = AdaptiveWordleSolver(words: words)
         let referenceSolver = OriginalWordleSolver(words: words)
 
+        let yellowDict = Dictionary(uniqueKeysWithValues: scenario.yellow.map { ($0, UInt8(0)) })
         let adaptiveResults = await adaptiveSolver.solve(
             excluded: scenario.excluded,
             green: scenario.green,
-            yellow: scenario.yellow
+            yellow: yellowDict
         )
 
         let referenceResults = await referenceSolver.solve(

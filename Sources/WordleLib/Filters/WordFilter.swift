@@ -184,6 +184,55 @@ public struct StaticWordleFilter: WordFilter {
         self.yellow = yellow
     }
 
+    /// Convenience initializer that computes bitmasks at runtime.
+    /// Slightly slower to construct than compile-time macros, but the
+    /// filtering performance is identical once constructed.
+    @inlinable
+    public init(
+        excluded: Set<Character>,
+        green: [Int: Character],
+        yellow: Set<Character>
+    ) {
+        // Green letters should not be excluded
+        let placedLetters = Set(green.values)
+        let effectiveExcluded = excluded.subtracting(placedLetters)
+        let required = placedLetters.union(yellow)
+
+        self.excludedMask = ExcludedLetterFilter.buildMask(from: effectiveExcluded)
+        self.requiredMask = RequiredLetterFilter.buildMask(from: required)
+        self.green = green.compactMap { position, char in
+            guard let ascii = Word.asciiValue(for: char),
+                  position >= 0, position <= 4 else { return nil }
+            return (position, ascii)
+        }
+        self.yellow = []
+    }
+
+    /// Convenience initializer with yellow position tracking.
+    @inlinable
+    public init(
+        excluded: Set<Character>,
+        green: [Int: Character],
+        yellowPositions: [Character: UInt8]
+    ) {
+        // Green letters should not be excluded
+        let placedLetters = Set(green.values)
+        let effectiveExcluded = excluded.subtracting(placedLetters)
+        let required = placedLetters.union(yellowPositions.keys)
+
+        self.excludedMask = ExcludedLetterFilter.buildMask(from: effectiveExcluded)
+        self.requiredMask = RequiredLetterFilter.buildMask(from: required)
+        self.green = green.compactMap { position, char in
+            guard let ascii = Word.asciiValue(for: char),
+                  position >= 0, position <= 4 else { return nil }
+            return (position, ascii)
+        }
+        self.yellow = yellowPositions.compactMap { char, forbidden in
+            guard let ascii = Word.asciiValue(for: char) else { return nil }
+            return (ascii, forbidden)
+        }
+    }
+
     @inlinable @inline(__always)
     public func matches(_ word: Word) -> Bool {
         let mask = word.letterMask

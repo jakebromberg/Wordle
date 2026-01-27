@@ -1,124 +1,58 @@
 import Foundation
 
-/// Adaptive solver that automatically selects the fastest algorithm based on query type.
+/// Adaptive solver that uses `StaticWordleFilter` for optimal performance.
 ///
-/// Decision logic:
-/// - Uses `BitmaskWordleSolver` (faster) when yellow position tracking is NOT needed
-/// - Uses `PositionAwareWordleSolver` when yellow position tracking IS needed
-/// - Always uses parallel execution (TaskGroup) as it's faster in all scenarios
+/// Uses the composable filter architecture with `StaticWordleFilter`, which
+/// combines all constraint checks into a single tight loop. Bitmasks are
+/// computed once at query time, then filtering runs at maximum speed.
 ///
 /// Usage:
 /// ```swift
 /// let solver = AdaptiveWordleSolver(words: words)
 ///
-/// // Simple query - uses BitmaskWordleSolver (fastest)
-/// let results = await solver.solve(excluded: Set("xyz"), green: [0: "s"], yellow: Set("a"))
-///
-/// // With yellow positions - uses PositionAwareWordleSolver
+/// // After guessing "CRANE" with C gray, R yellow at position 1, A green at position 2, N/E gray:
 /// let results = await solver.solve(
-///     excluded: Set("xyz"),
-///     green: [0: "s"],
-///     yellowPositions: ["a": 0b00110]  // 'a' not at positions 1 or 2
+///     excluded: Set("cne"),
+///     green: [2: "a"],
+///     yellow: ["r": 0b00010]  // 'r' in word but not at position 1
 /// )
+///
+/// // Use helpers to build yellow constraints:
+/// let yellow = AdaptiveWordleSolver.yellowFromGuess([("r", 1)])  // ["r": 0b00010]
 /// ```
 public final class AdaptiveWordleSolver: @unchecked Sendable {
-    private let bitmaskSolver: BitmaskWordleSolver
-    private let positionAwareSolver: PositionAwareWordleSolver
+    private let composableSolver: ComposableWordleSolver
 
     public var allWordleWords: [Word] {
-        bitmaskSolver.allWordleWords
+        composableSolver.words
     }
 
     public init(words: [String]) {
-        self.bitmaskSolver = BitmaskWordleSolver(words: words)
-        self.positionAwareSolver = PositionAwareWordleSolver(words: words)
+        self.composableSolver = ComposableWordleSolver(words: words)
     }
 
     public init(words: [Word]) {
-        self.bitmaskSolver = BitmaskWordleSolver(words: words)
-        self.positionAwareSolver = PositionAwareWordleSolver(words: words)
+        self.composableSolver = ComposableWordleSolver(words: words)
     }
 
-    // MARK: - Simple API (No Yellow Position Tracking)
+    // MARK: - Solve API
 
-    /// Solve without yellow position tracking.
-    /// Uses the fastest algorithm (BitmaskWordleSolver + TaskGroup).
+    /// Solve with the given constraints.
     ///
-    /// - Note: Yellow letters must exist somewhere in the word, but this method
-    ///   does NOT track where they cannot be. For full Wordle semantics, use
-    ///   `solve(excluded:green:yellowPositions:)` instead.
+    /// - Parameters:
+    ///   - excluded: Gray letters that are not in the word.
+    ///   - green: Green letters at their correct positions.
+    ///   - yellow: Yellow letters mapped to forbidden position bitmasks.
+    ///     Bit N set means the letter cannot be at position N.
+    ///     Example: `["a": 0b00110]` means 'a' must be in the word but not at positions 1 or 2.
+    ///     Use `forbiddenPositions()` or `yellowFromGuess()` helpers to build these.
     public func solve(
         excluded: Set<Character> = [],
         green: [Int: Character] = [:],
-        yellow: Set<Character> = []
+        yellow: [Character: UInt8] = [:]
     ) async -> [Word] {
-        await bitmaskSolver.solve(excluded: excluded, green: green, yellow: yellow)
-    }
-
-    // MARK: - Full API (With Yellow Position Tracking)
-
-    /// Solve with yellow position tracking.
-    /// Uses PositionAwareWordleSolver + TaskGroup when positions are specified.
-    ///
-    /// - Parameter yellowPositions: Maps each yellow letter to a bitmask of forbidden positions.
-    ///   Bit N set means the letter cannot be at position N.
-    ///   Example: `["a": 0b00110]` means 'a' cannot be at positions 1 or 2.
-    public func solve(
-        excluded: Set<Character>,
-        green: [Int: Character],
-        yellowPositions: [Character: UInt8]
-    ) async -> [Word] {
-        // Check if any yellow letter has position constraints
-        let hasPositionConstraints = yellowPositions.values.contains { $0 != 0 }
-
-        if hasPositionConstraints {
-            // Need PositionAwareWordleSolver for position tracking
-            return await positionAwareSolver.solve(
-                excluded: excluded,
-                green: green,
-                yellow: Set(yellowPositions.keys)
-            )
-        } else {
-            // No position constraints, use faster BitmaskWordleSolver
-            let yellow = Set(yellowPositions.keys)
-            return await bitmaskSolver.solve(
-                excluded: excluded,
-                green: green,
-                yellow: yellow
-            )
-        }
-    }
-
-    // MARK: - Synchronous API
-
-    /// Synchronous solve without yellow position tracking.
-    /// Slightly slower than async version but simpler for non-async code.
-    public func solveSync(
-        excluded: Set<Character> = [],
-        green: [Int: Character] = [:],
-        yellow: Set<Character> = []
-    ) -> [Word] {
-        bitmaskSolver.solveSync(excluded: excluded, green: green, yellow: yellow)
-    }
-
-    /// Synchronous solve with yellow position tracking.
-    public func solveSync(
-        excluded: Set<Character>,
-        green: [Int: Character],
-        yellowPositions: [Character: UInt8]
-    ) -> [Word] {
-        let hasPositionConstraints = yellowPositions.values.contains { $0 != 0 }
-
-        if hasPositionConstraints {
-            return positionAwareSolver.solveSync(
-                excluded: excluded,
-                green: green,
-                yellowPositions: yellowPositions
-            )
-        } else {
-            let yellow = Set(yellowPositions.keys)
-            return bitmaskSolver.solveSync(excluded: excluded, green: green, yellow: yellow)
-        }
+        let filter = StaticWordleFilter(excluded: excluded, green: green, yellowPositions: yellow)
+        return await composableSolver.solveAsync(filter: filter)
     }
 
     // MARK: - Convenience Helpers
@@ -146,6 +80,3 @@ public final class AdaptiveWordleSolver: @unchecked Sendable {
     }
 }
 
-// MARK: - Protocol Conformance
-
-extension AdaptiveWordleSolver: WordleSolver {}
