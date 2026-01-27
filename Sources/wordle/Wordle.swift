@@ -34,6 +34,12 @@ struct Solve: AsyncParsableCommand {
     @Flag(name: .shortAndLong, help: "Show detailed timing information.")
     var verbose: Bool = false
 
+    @Flag(name: .long, help: "Output results as JSON to a file.")
+    var json: Bool = false
+
+    @Option(name: [.short, .customLong("output")], help: "Output file path for JSON (default: results.json).")
+    var output: String = "results.json"
+
     func run() async throws {
         let wordStrings = try WordList.loadBundled()
         let words = wordStrings.compactMap(Word.init)
@@ -79,12 +85,37 @@ struct Solve: AsyncParsableCommand {
             print("Found \(results.count) possible words in \(String(format: "%.4f", elapsed * 1000))ms:")
         }
 
-        for word in results.prefix(20) {
-            print(word.raw)
+        if json {
+            try exportJSON(results: results, to: output, elapsed: elapsed)
+        } else {
+            for word in results.prefix(20) {
+                print(word.raw)
+            }
+            if results.count > 20 {
+                print("... and \(results.count - 20) more")
+            }
         }
-        if results.count > 20 {
-            print("... and \(results.count - 20) more")
-        }
+    }
+
+    private func exportJSON(results: [Word], to path: String, elapsed: Double) throws {
+        let output = SolveOutput(
+            count: results.count,
+            elapsedMs: elapsed * 1000,
+            constraints: ConstraintsOutput(
+                excluded: excluded,
+                green: green,
+                yellow: yellow
+            ),
+            words: results.map(\.raw)
+        )
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(output)
+
+        let url = URL(fileURLWithPath: path)
+        try data.write(to: url)
+        print("Wrote \(results.count) results to \(path)")
     }
 
     private func parseGreen(_ input: String) -> [Int: Character] {
@@ -100,6 +131,21 @@ struct Solve: AsyncParsableCommand {
         }
         return result
     }
+}
+
+// MARK: - JSON Output Types
+
+private struct SolveOutput: Encodable {
+    let count: Int
+    let elapsedMs: Double
+    let constraints: ConstraintsOutput
+    let words: [String]
+}
+
+private struct ConstraintsOutput: Encodable {
+    let excluded: String
+    let green: String
+    let yellow: String
 }
 
 enum SolverType: String, ExpressibleByArgument, CaseIterable {
