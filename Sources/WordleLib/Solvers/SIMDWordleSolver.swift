@@ -24,12 +24,12 @@ public final class SIMDWordleSolver: @unchecked Sendable {
     public func solve(
         excluded: Set<Character>,
         green: [Int: Character],
-        yellow: Set<Character>
+        yellow: [Character: UInt8]
     ) -> [Word] {
         // Build constraint masks
         let placedLetters = Set(green.values)
         let effectiveExcluded = excluded.subtracting(placedLetters)
-        let required = placedLetters.union(yellow)
+        let required = placedLetters.union(yellow.keys)
 
         let excludedMask = buildMask(from: effectiveExcluded)
         let requiredMask = buildMask(from: required)
@@ -38,6 +38,12 @@ public final class SIMDWordleSolver: @unchecked Sendable {
         let greenConstraints: [(Int, UInt8)] = green.compactMap { pos, char in
             guard let ascii = Word.asciiValue(for: char) else { return nil }
             return (pos, ascii)
+        }
+
+        // Build yellow position constraints
+        let yellowConstraints: [(UInt8, UInt8)] = yellow.compactMap { char, forbidden in
+            guard let ascii = Word.asciiValue(for: char) else { return nil }
+            return (ascii, forbidden)
         }
 
         var results: [Word] = []
@@ -81,16 +87,7 @@ public final class SIMDWordleSolver: @unchecked Sendable {
                 let wordIndex = baseIndex + j
                 let word = allWordleWords[wordIndex]
 
-                // Check green positions
-                var passesGreen = true
-                for (pos, ascii) in greenConstraints {
-                    if word[pos] != ascii {
-                        passesGreen = false
-                        break
-                    }
-                }
-
-                if passesGreen {
+                if checkPositions(word: word, green: greenConstraints, yellow: yellowConstraints) {
                     results.append(word)
                 }
             }
@@ -105,20 +102,35 @@ public final class SIMDWordleSolver: @unchecked Sendable {
             if (mask & requiredMask) != requiredMask { continue }
 
             let word = allWordleWords[i]
-            var passesGreen = true
-            for (pos, ascii) in greenConstraints {
-                if word[pos] != ascii {
-                    passesGreen = false
-                    break
-                }
-            }
-
-            if passesGreen {
+            if checkPositions(word: word, green: greenConstraints, yellow: yellowConstraints) {
                 results.append(word)
             }
         }
 
         return results
+    }
+
+    @inline(__always)
+    private func checkPositions(
+        word: Word,
+        green: [(Int, UInt8)],
+        yellow: [(UInt8, UInt8)]
+    ) -> Bool {
+        // Check green positions
+        for (pos, ascii) in green {
+            if word[pos] != ascii { return false }
+        }
+
+        // Check yellow positions (letter must not be at forbidden positions)
+        for (ascii, forbidden) in yellow {
+            if (forbidden & 0b00001) != 0 && word[0] == ascii { return false }
+            if (forbidden & 0b00010) != 0 && word[1] == ascii { return false }
+            if (forbidden & 0b00100) != 0 && word[2] == ascii { return false }
+            if (forbidden & 0b01000) != 0 && word[3] == ascii { return false }
+            if (forbidden & 0b10000) != 0 && word[4] == ascii { return false }
+        }
+
+        return true
     }
 
     private func buildMask(from chars: Set<Character>) -> UInt32 {

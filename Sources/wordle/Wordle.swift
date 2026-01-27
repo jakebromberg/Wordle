@@ -278,10 +278,11 @@ struct Benchmark: AsyncParsableCommand {
                     return results.count
                 }),
                 ("SIMD", {
+                    let yellowDict = Dictionary(uniqueKeysWithValues: scenario.yellow.map { ($0, UInt8(0)) })
                     let results = simdSolver.solve(
                         excluded: scenario.excluded,
                         green: scenario.green,
-                        yellow: scenario.yellow
+                        yellow: yellowDict
                     )
                     return results.count
                 }),

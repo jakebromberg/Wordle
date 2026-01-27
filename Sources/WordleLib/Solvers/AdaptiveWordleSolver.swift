@@ -1,10 +1,9 @@
 import Foundation
 
-/// Adaptive solver that uses `StaticWordleFilter` for optimal performance.
+/// Adaptive solver using SIMD-accelerated filtering for optimal performance.
 ///
-/// Uses the composable filter architecture with `StaticWordleFilter`, which
-/// combines all constraint checks into a single tight loop. Bitmasks are
-/// computed once at query time, then filtering runs at maximum speed.
+/// Uses SIMD8<UInt32> vector instructions to check 8 word masks simultaneously,
+/// providing significant speedup over scalar implementations.
 ///
 /// Usage:
 /// ```swift
@@ -21,18 +20,18 @@ import Foundation
 /// let yellow = AdaptiveWordleSolver.yellowFromGuess([("r", 1)])  // ["r": 0b00010]
 /// ```
 public final class AdaptiveWordleSolver: @unchecked Sendable {
-    private let composableSolver: ComposableWordleSolver
+    private let simdSolver: SIMDWordleSolver
 
     public var allWordleWords: [Word] {
-        composableSolver.words
+        simdSolver.allWordleWords
     }
 
     public init(words: [String]) {
-        self.composableSolver = ComposableWordleSolver(words: words)
+        self.simdSolver = SIMDWordleSolver(words: words)
     }
 
     public init(words: [Word]) {
-        self.composableSolver = ComposableWordleSolver(words: words)
+        self.simdSolver = SIMDWordleSolver(words: words)
     }
 
     // MARK: - Solve API
@@ -51,8 +50,7 @@ public final class AdaptiveWordleSolver: @unchecked Sendable {
         green: [Int: Character] = [:],
         yellow: [Character: UInt8] = [:]
     ) async -> [Word] {
-        let filter = StaticWordleFilter(excluded: excluded, green: green, yellowPositions: yellow)
-        return await composableSolver.solveAsync(filter: filter)
+        simdSolver.solve(excluded: excluded, green: green, yellow: yellow)
     }
 
     // MARK: - Convenience Helpers
