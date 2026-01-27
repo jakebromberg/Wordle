@@ -9,17 +9,17 @@ public final class OriginalWordleSolver<W: WordleWord>: WordleSolver where W.Pos
         self.allWordleWords = words
     }
 
-    public func getSolutions(
-        excludedChars: Set<Character>,
-        correctlyPlacedChars: [Int: Character],
-        correctLettersInWrongPlaces: Set<Character>
+    public func solve(
+        excluded: Set<Character>,
+        green: [Int: Character],
+        yellow: Set<Character>
     ) async -> [W] {
         // Letters that are placed (green) should not be excluded
-        let placedLetters = Set(correctlyPlacedChars.values)
-        let effectiveExcluded = excludedChars.subtracting(placedLetters)
+        let placedLetters = Set(green.values)
+        let effectiveExcluded = excluded.subtracting(placedLetters)
 
         // All letters that must appear somewhere
-        let requiredLetters = placedLetters.union(correctLettersInWrongPlaces)
+        let requiredLetters = placedLetters.union(yellow)
 
         return allWordleWords.filter { word in
             // Check no excluded letters are present
@@ -33,7 +33,7 @@ public final class OriginalWordleSolver<W: WordleWord>: WordleSolver where W.Pos
             }
 
             // Check green letters are at correct positions
-            for (position, char) in correctlyPlacedChars {
+            for (position, char) in green {
                 if !word.containsLetter(letter: char, atPosition: position) {
                     return false
                 }

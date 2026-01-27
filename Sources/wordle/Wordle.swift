@@ -58,27 +58,19 @@ struct Solve: AsyncParsableCommand {
         switch solver {
         case .original:
             let solver = OriginalWordleSolver(words: words)
-            results = await solver.getSolutions(
-                excludedChars: excludedSet,
-                correctlyPlacedChars: greenDict,
-                correctLettersInWrongPlaces: yellowSet
-            )
+            results = await solver.solve(excluded: excludedSet, green: greenDict, yellow: yellowSet)
         case .bitmask:
             let solver = BitmaskWordleSolver(words: words)
-            results = await solver.getSolutions(
-                excludedChars: excludedSet,
-                correctlyPlacedChars: greenDict,
-                correctLettersInWrongPlaces: yellowSet
-            )
+            results = await solver.solve(excluded: excludedSet, green: greenDict, yellow: yellowSet)
         case .position:
             let solver = PositionAwareWordleSolver(words: words)
-            results = solver.solve(excluded: excludedSet, green: greenDict, yellow: yellowSet)
+            results = await solver.solve(excluded: excludedSet, green: greenDict, yellow: yellowSet)
         case .adaptive:
             let solver = AdaptiveWordleSolver(words: words)
             results = await solver.solve(excluded: excludedSet, green: greenDict, yellow: yellowSet)
         case .composable:
             let solver = ComposableWordleSolver(words: words)
-            results = solver.solve(excluded: excludedSet, green: greenDict, yellow: yellowSet)
+            results = await solver.solve(excluded: excludedSet, green: greenDict, yellow: yellowSet)
         }
 
         let elapsed = CFAbsoluteTimeGetCurrent() - startTime
@@ -189,25 +181,25 @@ struct Benchmark: AsyncParsableCommand {
             print("-" + String(repeating: "-", count: scenario.name.count))
 
             // Warm up
-            _ = await originalSolver.getSolutions(
-                excludedChars: scenario.excluded,
-                correctlyPlacedChars: scenario.green,
-                correctLettersInWrongPlaces: scenario.yellow
+            _ = await originalSolver.solve(
+                excluded: scenario.excluded,
+                green: scenario.green,
+                yellow: scenario.yellow
             )
 
             let staticFilter = staticFilters[scenario.name]!
 
             let solvers: [(String, () async -> Int)] = [
                 ("Original", {
-                    let results = await originalSolver.getSolutions(
-                        excludedChars: scenario.excluded,
-                        correctlyPlacedChars: scenario.green,
-                        correctLettersInWrongPlaces: scenario.yellow
+                    let results = await originalSolver.solve(
+                        excluded: scenario.excluded,
+                        green: scenario.green,
+                        yellow: scenario.yellow
                     )
                     return results.count
                 }),
                 ("Bitmask (Async)", {
-                    let results = await bitmaskSolver.solveAsync(
+                    let results = await bitmaskSolver.solve(
                         excluded: scenario.excluded,
                         green: scenario.green,
                         yellow: scenario.yellow

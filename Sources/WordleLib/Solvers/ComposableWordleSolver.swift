@@ -58,9 +58,9 @@ public final class ComposableWordleSolver: @unchecked Sendable {
 
     // MARK: - Convenience API (Wordle-specific)
 
-    /// Solve with standard Wordle constraints using the pre-composed WordleFilter.
+    /// Sync solve with standard Wordle constraints using the pre-composed WordleFilter.
     @inlinable
-    public func solve(
+    public func solveSync(
         excluded: Set<Character> = [],
         green: [Int: Character] = [:],
         yellow: Set<Character> = []
@@ -69,9 +69,9 @@ public final class ComposableWordleSolver: @unchecked Sendable {
         return solve(filter: filter)
     }
 
-    /// Solve with yellow position constraints.
+    /// Sync solve with yellow position constraints.
     @inlinable
-    public func solve(
+    public func solveSync(
         excluded: Set<Character>,
         green: [Int: Character],
         yellowPositions: [Character: UInt8]
@@ -80,9 +80,9 @@ public final class ComposableWordleSolver: @unchecked Sendable {
         return solve(filter: filter)
     }
 
-    /// Async solve with standard Wordle constraints.
+    /// Async solve with standard Wordle constraints (protocol conformance).
     @inlinable
-    public func solveAsync(
+    public func solve(
         excluded: Set<Character> = [],
         green: [Int: Character] = [:],
         yellow: Set<Character> = []
@@ -93,7 +93,7 @@ public final class ComposableWordleSolver: @unchecked Sendable {
 
     /// Async solve with yellow position constraints.
     @inlinable
-    public func solveAsync(
+    public func solve(
         excluded: Set<Character>,
         green: [Int: Character],
         yellowPositions: [Character: UInt8]
@@ -107,18 +107,6 @@ public final class ComposableWordleSolver: @unchecked Sendable {
 
 extension ComposableWordleSolver: WordleSolver {
     public var allWordleWords: [Word] { words }
-
-    public func getSolutions(
-        excludedChars: Set<Character>,
-        correctlyPlacedChars: [Int: Character],
-        correctLettersInWrongPlaces: Set<Character>
-    ) async -> [Word] {
-        await solveAsync(
-            excluded: excludedChars,
-            green: correctlyPlacedChars,
-            yellow: correctLettersInWrongPlaces
-        )
-    }
 }
 
 // MARK: - Filter Builder DSL

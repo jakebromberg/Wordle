@@ -37,10 +37,10 @@ final class PerformanceTests: XCTestCase {
         measure {
             let exp = expectation(description: "solve")
             Task {
-                _ = await solver.getSolutions(
-                    excludedChars: scenario.excluded,
-                    correctlyPlacedChars: scenario.green,
-                    correctLettersInWrongPlaces: scenario.yellow
+                _ = await solver.solve(
+                    excluded: scenario.excluded,
+                    green: scenario.green,
+                    yellow: scenario.yellow
                 )
                 exp.fulfill()
             }
@@ -55,10 +55,10 @@ final class PerformanceTests: XCTestCase {
         measure {
             let exp = expectation(description: "solve")
             Task {
-                _ = await solver.getSolutions(
-                    excludedChars: scenario.excluded,
-                    correctlyPlacedChars: scenario.green,
-                    correctLettersInWrongPlaces: scenario.yellow
+                _ = await solver.solve(
+                    excluded: scenario.excluded,
+                    green: scenario.green,
+                    yellow: scenario.yellow
                 )
                 exp.fulfill()
             }
@@ -73,10 +73,10 @@ final class PerformanceTests: XCTestCase {
         measure {
             let exp = expectation(description: "solve")
             Task {
-                _ = await solver.getSolutions(
-                    excludedChars: scenario.excluded,
-                    correctlyPlacedChars: scenario.green,
-                    correctLettersInWrongPlaces: scenario.yellow
+                _ = await solver.solve(
+                    excluded: scenario.excluded,
+                    green: scenario.green,
+                    yellow: scenario.yellow
                 )
                 exp.fulfill()
             }
@@ -93,10 +93,10 @@ final class PerformanceTests: XCTestCase {
         measure {
             let exp = expectation(description: "solve")
             Task {
-                _ = await solver.getSolutions(
-                    excludedChars: scenario.excluded,
-                    correctlyPlacedChars: scenario.green,
-                    correctLettersInWrongPlaces: scenario.yellow
+                _ = await solver.solve(
+                    excluded: scenario.excluded,
+                    green: scenario.green,
+                    yellow: scenario.yellow
                 )
                 exp.fulfill()
             }
@@ -111,10 +111,10 @@ final class PerformanceTests: XCTestCase {
         measure {
             let exp = expectation(description: "solve")
             Task {
-                _ = await solver.getSolutions(
-                    excludedChars: scenario.excluded,
-                    correctlyPlacedChars: scenario.green,
-                    correctLettersInWrongPlaces: scenario.yellow
+                _ = await solver.solve(
+                    excluded: scenario.excluded,
+                    green: scenario.green,
+                    yellow: scenario.yellow
                 )
                 exp.fulfill()
             }
@@ -129,10 +129,10 @@ final class PerformanceTests: XCTestCase {
         measure {
             let exp = expectation(description: "solve")
             Task {
-                _ = await solver.getSolutions(
-                    excludedChars: scenario.excluded,
-                    correctlyPlacedChars: scenario.green,
-                    correctLettersInWrongPlaces: scenario.yellow
+                _ = await solver.solve(
+                    excluded: scenario.excluded,
+                    green: scenario.green,
+                    yellow: scenario.yellow
                 )
                 exp.fulfill()
             }
@@ -147,7 +147,7 @@ final class PerformanceTests: XCTestCase {
         let scenario = Self.scenarios[0]
 
         measure {
-            _ = solver.solve(
+            _ = solver.solveSync(
                 excluded: scenario.excluded,
                 green: scenario.green,
                 yellow: scenario.yellow
@@ -160,7 +160,7 @@ final class PerformanceTests: XCTestCase {
         let scenario = Self.scenarios[1]
 
         measure {
-            _ = solver.solve(
+            _ = solver.solveSync(
                 excluded: scenario.excluded,
                 green: scenario.green,
                 yellow: scenario.yellow
@@ -173,7 +173,7 @@ final class PerformanceTests: XCTestCase {
         let scenario = Self.scenarios[5]
 
         measure {
-            _ = solver.solve(
+            _ = solver.solveSync(
                 excluded: scenario.excluded,
                 green: scenario.green,
                 yellow: scenario.yellow
@@ -185,7 +185,7 @@ final class PerformanceTests: XCTestCase {
         let solver = PositionAwareWordleSolver(words: words)
 
         measure {
-            _ = solver.solve(
+            _ = solver.solveSync(
                 excluded: Set("qxz"),
                 green: [0: "s"],
                 yellowPositions: ["a": 0b00110, "e": 0b01000]  // a not at 1,2; e not at 3

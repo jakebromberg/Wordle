@@ -37,19 +37,19 @@ struct CorrectnessTests {
         let opt2Solver = BitmaskWordleSolver(words: words)
         let ultraSolver = PositionAwareWordleSolver(words: words)
 
-        let naive2Results = await naive2Solver.getSolutions(
-            excludedChars: scenario.excluded,
-            correctlyPlacedChars: scenario.green,
-            correctLettersInWrongPlaces: scenario.yellow
+        let naive2Results = await naive2Solver.solve(
+            excluded: scenario.excluded,
+            green: scenario.green,
+            yellow: scenario.yellow
         )
 
-        let opt2Results = await opt2Solver.getSolutions(
-            excludedChars: scenario.excluded,
-            correctlyPlacedChars: scenario.green,
-            correctLettersInWrongPlaces: scenario.yellow
+        let opt2Results = await opt2Solver.solve(
+            excluded: scenario.excluded,
+            green: scenario.green,
+            yellow: scenario.yellow
         )
 
-        let ultraResults = ultraSolver.solve(
+        let ultraResults = await ultraSolver.solve(
             excluded: scenario.excluded,
             green: scenario.green,
             yellow: scenario.yellow
@@ -70,7 +70,7 @@ struct CorrectnessTests {
         let solver = PositionAwareWordleSolver(words: words)
 
         // Test with position bitmask: 'a' cannot be at positions 0 or 1 (bitmask 0b00011)
-        let results = solver.solve(
+        let results = solver.solveSync(
             excluded: [],
             green: [:],
             yellowPositions: ["a": 0b00011]
@@ -98,7 +98,7 @@ struct CorrectnessTests {
     func parallelSolversProduceSameResults(scenario: TestScenario) async throws {
         let solver = PositionAwareWordleSolver(words: words)
 
-        let sequentialResults = solver.solve(
+        let sequentialResults = solver.solveSync(
             excluded: scenario.excluded,
             green: scenario.green,
             yellow: scenario.yellow
@@ -110,7 +110,7 @@ struct CorrectnessTests {
             yellow: scenario.yellow
         )
 
-        let taskGroupResults = await solver.solveAsync(
+        let taskGroupResults = await solver.solve(
             excluded: scenario.excluded,
             green: scenario.green,
             yellow: scenario.yellow
@@ -135,10 +135,10 @@ struct CorrectnessTests {
             yellow: scenario.yellow
         )
 
-        let referenceResults = await referenceSolver.getSolutions(
-            excludedChars: scenario.excluded,
-            correctlyPlacedChars: scenario.green,
-            correctLettersInWrongPlaces: scenario.yellow
+        let referenceResults = await referenceSolver.solve(
+            excluded: scenario.excluded,
+            green: scenario.green,
+            yellow: scenario.yellow
         )
 
         let adaptiveSet = Set(adaptiveResults.map(\.raw))
@@ -211,7 +211,7 @@ struct CorrectnessTests {
     @Test("Excluded letters are filtered out")
     func excludedLettersAreFiltered() throws {
         let solver = PositionAwareWordleSolver(words: words)
-        let results = solver.solve(
+        let results = solver.solveSync(
             excluded: Set("aeiou"),
             green: [:],
             yellow: []
@@ -229,7 +229,7 @@ struct CorrectnessTests {
     @Test("Green letters at correct positions")
     func greenLettersAtCorrectPositions() throws {
         let solver = PositionAwareWordleSolver(words: words)
-        let results = solver.solve(
+        let results = solver.solveSync(
             excluded: [],
             green: [0: "s", 4: "e"],
             yellow: []
@@ -244,7 +244,7 @@ struct CorrectnessTests {
     @Test("Yellow letters are present")
     func yellowLettersArePresent() throws {
         let solver = PositionAwareWordleSolver(words: words)
-        let results = solver.solve(
+        let results = solver.solveSync(
             excluded: [],
             green: [:],
             yellow: Set("xyz")
@@ -261,7 +261,7 @@ struct CorrectnessTests {
     func yellowPositionsAreForbidden() throws {
         let solver = PositionAwareWordleSolver(words: words)
         // Positions 0 and 1 forbidden = bitmask 0b00011
-        let results = solver.solve(
+        let results = solver.solveSync(
             excluded: [],
             green: [:],
             yellowPositions: ["a": 0b00011]
@@ -280,7 +280,7 @@ struct CorrectnessTests {
 
         // 's' is both excluded and green at position 0
         // Green should override, so words starting with 's' are allowed
-        let results = solver.solve(
+        let results = solver.solveSync(
             excluded: Set("s"),
             green: [0: "s"],
             yellow: []
@@ -299,16 +299,16 @@ struct CorrectnessTests {
         let composableSolver = ComposableWordleSolver(words: words)
         let referenceSolver = OriginalWordleSolver(words: words)
 
-        let composableResults = await composableSolver.solveAsync(
+        let composableResults = await composableSolver.solve(
             excluded: scenario.excluded,
             green: scenario.green,
             yellow: scenario.yellow
         )
 
-        let referenceResults = await referenceSolver.getSolutions(
-            excludedChars: scenario.excluded,
-            correctlyPlacedChars: scenario.green,
-            correctLettersInWrongPlaces: scenario.yellow
+        let referenceResults = await referenceSolver.solve(
+            excluded: scenario.excluded,
+            green: scenario.green,
+            yellow: scenario.yellow
         )
 
         let composableSet = Set(composableResults.map(\.raw))

@@ -52,7 +52,7 @@ public final class AdaptiveWordleSolver: @unchecked Sendable {
         green: [Int: Character] = [:],
         yellow: Set<Character> = []
     ) async -> [Word] {
-        await bitmaskSolver.solveAsync(excluded: excluded, green: green, yellow: yellow)
+        await bitmaskSolver.solve(excluded: excluded, green: green, yellow: yellow)
     }
 
     // MARK: - Full API (With Yellow Position Tracking)
@@ -73,15 +73,15 @@ public final class AdaptiveWordleSolver: @unchecked Sendable {
 
         if hasPositionConstraints {
             // Need PositionAwareWordleSolver for position tracking
-            return await positionAwareSolver.solveAsync(
+            return await positionAwareSolver.solve(
                 excluded: excluded,
                 green: green,
-                yellowPositions: yellowPositions
+                yellow: Set(yellowPositions.keys)
             )
         } else {
             // No position constraints, use faster BitmaskWordleSolver
             let yellow = Set(yellowPositions.keys)
-            return await bitmaskSolver.solveAsync(
+            return await bitmaskSolver.solve(
                 excluded: excluded,
                 green: green,
                 yellow: yellow
@@ -98,7 +98,7 @@ public final class AdaptiveWordleSolver: @unchecked Sendable {
         green: [Int: Character] = [:],
         yellow: Set<Character> = []
     ) -> [Word] {
-        bitmaskSolver.solve(excluded: excluded, green: green, yellow: yellow)
+        bitmaskSolver.solveSync(excluded: excluded, green: green, yellow: yellow)
     }
 
     /// Synchronous solve with yellow position tracking.
@@ -110,14 +110,14 @@ public final class AdaptiveWordleSolver: @unchecked Sendable {
         let hasPositionConstraints = yellowPositions.values.contains { $0 != 0 }
 
         if hasPositionConstraints {
-            return positionAwareSolver.solve(
+            return positionAwareSolver.solveSync(
                 excluded: excluded,
                 green: green,
                 yellowPositions: yellowPositions
             )
         } else {
             let yellow = Set(yellowPositions.keys)
-            return bitmaskSolver.solve(excluded: excluded, green: green, yellow: yellow)
+            return bitmaskSolver.solveSync(excluded: excluded, green: green, yellow: yellow)
         }
     }
 
@@ -148,12 +148,4 @@ public final class AdaptiveWordleSolver: @unchecked Sendable {
 
 // MARK: - Protocol Conformance
 
-extension AdaptiveWordleSolver: WordleSolver {
-    public func getSolutions(
-        excludedChars: Set<Character>,
-        correctlyPlacedChars: [Int: Character],
-        correctLettersInWrongPlaces: Set<Character>
-    ) async -> [Word] {
-        await solve(excluded: excludedChars, green: correctlyPlacedChars, yellow: correctLettersInWrongPlaces)
-    }
-}
+extension AdaptiveWordleSolver: WordleSolver {}

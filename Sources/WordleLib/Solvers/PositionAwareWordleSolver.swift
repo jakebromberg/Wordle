@@ -29,7 +29,7 @@ public final class PositionAwareWordleSolver: @unchecked Sendable {
     /// - Parameter yellowPositions: Maps each yellow letter to forbidden positions as a bitmask.
     ///   Bit 0 = position 0, bit 1 = position 1, etc.
     @inline(__always)
-    public func solve(
+    public func solveSync(
         excluded: Set<Character>,
         green: [Int: Character],
         yellowPositions: [Character: UInt8]
@@ -54,13 +54,13 @@ public final class PositionAwareWordleSolver: @unchecked Sendable {
 
     /// Convenience method accepting yellow letters as a simple set (no position constraints).
     @inline(__always)
-    public func solve(
+    public func solveSync(
         excluded: Set<Character> = [],
         green: [Int: Character] = [:],
         yellow: Set<Character> = []
     ) -> [Word] {
         let yellowPositions = Dictionary(uniqueKeysWithValues: yellow.map { ($0, UInt8(0)) })
-        return solve(excluded: excluded, green: green, yellowPositions: yellowPositions)
+        return solveSync(excluded: excluded, green: green, yellowPositions: yellowPositions)
     }
 
     // MARK: - Parallel Solve (GCD)
@@ -83,7 +83,7 @@ public final class PositionAwareWordleSolver: @unchecked Sendable {
 
         // For small lists, sequential is faster due to parallelization overhead
         if wordCount < 20_000 {
-            return solve(excluded: excluded, green: green, yellowPositions: yellowPositions)
+            return solveSync(excluded: excluded, green: green, yellowPositions: yellowPositions)
         }
 
         let chunkCount = processorCount
@@ -204,7 +204,7 @@ public final class PositionAwareWordleSolver: @unchecked Sendable {
         if constraintScore >= 5 {
             return await solveAsync(excluded: excluded, green: green, yellowPositions: yellowPositions)
         } else {
-            return solve(excluded: excluded, green: green, yellowPositions: yellowPositions)
+            return solveSync(excluded: excluded, green: green, yellowPositions: yellowPositions)
         }
     }
 
@@ -219,15 +219,15 @@ public final class PositionAwareWordleSolver: @unchecked Sendable {
     }
 }
 
-// MARK: - Protocol Conformance (async wrapper)
+// MARK: - Protocol Conformance
 
 extension PositionAwareWordleSolver: WordleSolver {
-    public func getSolutions(
-        excludedChars: Set<Character>,
-        correctlyPlacedChars: [Int: Character],
-        correctLettersInWrongPlaces: Set<Character>
+    public func solve(
+        excluded: Set<Character>,
+        green: [Int: Character],
+        yellow: Set<Character>
     ) async -> [Word] {
-        solve(excluded: excludedChars, green: correctlyPlacedChars, yellow: correctLettersInWrongPlaces)
+        solveSync(excluded: excluded, green: green, yellow: yellow)
     }
 }
 

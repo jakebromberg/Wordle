@@ -21,21 +21,11 @@ public final class BitmaskWordleSolver: WordleSolver, @unchecked Sendable {
         self.processorCount = ProcessInfo.processInfo.activeProcessorCount
     }
 
-    // MARK: - Sequential (Protocol Conformance)
-
-    public func getSolutions(
-        excludedChars: Set<Character>,
-        correctlyPlacedChars: [Int: Character],
-        correctLettersInWrongPlaces: Set<Character>
-    ) async -> [Word] {
-        solve(excluded: excludedChars, green: correctlyPlacedChars, yellow: correctLettersInWrongPlaces)
-    }
-
     // MARK: - Sequential Solve
 
     /// Sequential solve - fastest for broad queries with many results.
     @inline(__always)
-    public func solve(
+    public func solveSync(
         excluded: Set<Character> = [],
         green: [Int: Character] = [:],
         yellow: Set<Character> = []
@@ -58,14 +48,14 @@ public final class BitmaskWordleSolver: WordleSolver, @unchecked Sendable {
         return results
     }
 
-    // MARK: - Parallel Solve (TaskGroup)
+    // MARK: - Parallel Solve (TaskGroup / Protocol Conformance)
 
     /// Parallel solve using Swift's structured concurrency.
     ///
     /// Performance:
     /// - 2-6x faster for selective queries (few results)
     /// - Similar speed for broad queries (many results)
-    public func solveAsync(
+    public func solve(
         excluded: Set<Character> = [],
         green: [Int: Character] = [:],
         yellow: Set<Character> = []
