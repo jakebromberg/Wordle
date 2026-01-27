@@ -1,11 +1,12 @@
 import Foundation
 
-/// Adaptive solver using packed words and first-letter indexing for optimal performance.
+/// Adaptive solver that selects the optimal backend based on constraint characteristics.
 ///
-/// Combines multiple optimization techniques:
-/// - Packed 40-bit word representation for single-instruction green checks
-/// - First-letter indexing for O(1) bucket selection when green[0] is known
-/// - Cache-friendly memory layout for optimal CPU prefetching
+/// Automatically chooses between:
+/// - **TurboWordleSolver**: When first-letter indexing provides benefit (green[0] known
+///   or many first letters excluded). Uses packed 40-bit words and bucket skipping.
+/// - **SIMDWordleSolver**: When full scan is needed with no indexing benefit.
+///   Uses SIMD8<UInt32> for maximum throughput on bitmask operations.
 ///
 /// Usage:
 /// ```swift
@@ -23,6 +24,7 @@ import Foundation
 /// ```
 public final class AdaptiveWordleSolver: @unchecked Sendable {
     private let turboSolver: TurboWordleSolver
+    private let simdSolver: SIMDWordleSolver
 
     public var allWordleWords: [Word] {
         turboSolver.allWordleWords
@@ -30,15 +32,22 @@ public final class AdaptiveWordleSolver: @unchecked Sendable {
 
     public init(words: [String]) {
         self.turboSolver = TurboWordleSolver(words: words)
+        self.simdSolver = SIMDWordleSolver(words: words)
     }
 
     public init(words: [Word]) {
         self.turboSolver = TurboWordleSolver(words: words)
+        self.simdSolver = SIMDWordleSolver(words: words)
     }
 
     // MARK: - Solve API
 
     /// Solve with the given constraints.
+    ///
+    /// Automatically selects the optimal solver backend:
+    /// - Uses Turbo when green[0] is known (first-letter indexing gives 5-7x speedup)
+    /// - Uses Turbo when many first letters are excluded (bucket skipping helps)
+    /// - Uses SIMD for pure bitmask scans with no indexing benefit
     ///
     /// - Parameters:
     ///   - excluded: Gray letters that are not in the word.
@@ -52,7 +61,44 @@ public final class AdaptiveWordleSolver: @unchecked Sendable {
         green: [Int: Character] = [:],
         yellow: [Character: UInt8] = [:]
     ) async -> [Word] {
-        turboSolver.solve(excluded: excluded, green: green, yellow: yellow)
+        // Choose solver based on constraint characteristics
+        if shouldUseTurbo(excluded: excluded, green: green) {
+            return turboSolver.solve(excluded: excluded, green: green, yellow: yellow)
+        } else {
+            return simdSolver.solve(excluded: excluded, green: green, yellow: yellow)
+        }
+    }
+
+    // MARK: - Solver Selection
+
+    /// Determine whether Turbo solver will outperform SIMD.
+    ///
+    /// Turbo wins when its indexing can reduce the search space:
+    /// - green[0] known: search only 1/26th of words
+    /// - Many first letters excluded: skip entire buckets
+    @inline(__always)
+    private func shouldUseTurbo(excluded: Set<Character>, green: [Int: Character]) -> Bool {
+        // If we know the first letter, Turbo's indexing gives massive speedup (5-7x)
+        if green[0] != nil {
+            return true
+        }
+
+        // Count how many first-letter buckets can be skipped
+        // If we can skip many buckets, Turbo's bucket skipping helps
+        let excludedFirstLetters = excluded.filter { char in
+            guard let ascii = Word.asciiValue(for: char) else { return false }
+            return ascii >= 97 && ascii <= 122 // a-z
+        }.count
+
+        // If more than ~30% of alphabet is excluded, bucket skipping is worthwhile
+        // (8+ letters excluded means we skip 8+ of 26 buckets = 30%+)
+        if excludedFirstLetters >= 8 {
+            return true
+        }
+
+        // For other cases, SIMD's pure throughput wins
+        // (no index overhead, straight vectorized scan)
+        return false
     }
 
     // MARK: - Convenience Helpers

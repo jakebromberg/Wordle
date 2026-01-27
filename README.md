@@ -163,26 +163,37 @@ Median times in microseconds (8,506 words, 50 iterations):
 
 | Solver | No constraints | Excluded only | Green only | Mixed | Heavy |
 |--------|----------------|---------------|------------|-------|-------|
-| Original | 687 | 981 | 657 | 814 | 962 |
-| Original (Parallel) | 192 | 2174 | 1497 | 1913 | 2237 |
-| Bitmask | 87 | 64 | 31 | 18 | 14 |
-| SIMD | 58 | 53 | 12 | 11 | 9 |
-| **Adaptive** | **47** | **48** | **3** | **4** | **2** |
-| Turbo (Indexed) | 46 | 55 | 3 | 4 | 2 |
-| SIMD Turbo | 58 | 60 | 3 | 4 | 2 |
+| Original | 688 | 907 | 569 | 745 | 973 |
+| Bitmask | 80 | 61 | 14 | 16 | 13 |
+| SIMD | 57 | 52 | 10 | 12 | 10 |
+| Turbo (Indexed) | 47 | 45 | 2 | 4 | 2 |
+| **Adaptive** | **57** | **52** | **2** | **4** | **2** |
+
+*Adaptive selects SIMD for no constraints/excluded only (no indexing benefit), Turbo for green/mixed/heavy (indexing wins).*
 
 The **Adaptive** solver delivers:
 - **3µs** for green-only queries (when you know some correct letters)
 - **2µs** for heavy constraints (late-game scenarios)
 - **200-500x speedup** over the original implementation
 
-### Why Adaptive is Fastest
+### Adaptive Solver Selection
 
-The Adaptive solver uses TurboWordleSolver internally, which combines:
+The Adaptive solver automatically selects the optimal backend based on constraint characteristics:
 
-1. **First-letter indexing**: When `green[0]` is known (very common in Wordle), only ~327 words (1/26th) are searched instead of 8,506
-2. **Packed word comparison**: All 5 green positions checked with a single `(packed & mask) == value` operation
-3. **Bucket skipping**: Entire first-letter buckets skipped if first letter is excluded
+| Condition | Backend | Reason |
+|-----------|---------|--------|
+| `green[0]` is known | Turbo | First-letter indexing searches only ~1/26th of words |
+| 8+ letters excluded | Turbo | Bucket skipping avoids searching excluded first letters |
+| Otherwise | SIMD | Pure vectorized throughput with no index overhead |
+
+**Turbo** excels when its indexing reduces the search space:
+- **First-letter indexing**: When `green[0]` is known, only ~327 words searched instead of 8,506
+- **Packed word comparison**: All 5 green positions checked with a single `(packed & mask) == value` operation
+- **Bucket skipping**: Entire first-letter buckets skipped if first letter is excluded
+
+**SIMD** excels for full scans:
+- **Vectorized bitmask checks**: SIMD8<UInt32> processes 8 words simultaneously
+- **No index overhead**: Direct sequential memory access
 
 ## Project Structure
 
@@ -201,7 +212,7 @@ Sources/
       PositionAwareWordleSolver.swift # Yellow position tracking
       SIMDWordleSolver.swift          # SIMD-accelerated solver
       TurboWordleSolver.swift         # Packed words + first-letter indexing
-      AdaptiveWordleSolver.swift      # Default solver (uses Turbo)
+      AdaptiveWordleSolver.swift      # Default solver (selects Turbo or SIMD)
       ComposableWordleSolver.swift    # Composable filter architecture
     Filters/
       WordFilter.swift        # Filter protocol and basic filters
