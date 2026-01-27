@@ -1,9 +1,11 @@
 import Foundation
 
-/// Adaptive solver using SIMD-accelerated filtering for optimal performance.
+/// Adaptive solver using packed words and first-letter indexing for optimal performance.
 ///
-/// Uses SIMD8<UInt32> vector instructions to check 8 word masks simultaneously,
-/// providing significant speedup over scalar implementations.
+/// Combines multiple optimization techniques:
+/// - Packed 40-bit word representation for single-instruction green checks
+/// - First-letter indexing for O(1) bucket selection when green[0] is known
+/// - Cache-friendly memory layout for optimal CPU prefetching
 ///
 /// Usage:
 /// ```swift
@@ -20,18 +22,18 @@ import Foundation
 /// let yellow = AdaptiveWordleSolver.yellowFromGuess([("r", 1)])  // ["r": 0b00010]
 /// ```
 public final class AdaptiveWordleSolver: @unchecked Sendable {
-    private let simdSolver: SIMDWordleSolver
+    private let turboSolver: TurboWordleSolver
 
     public var allWordleWords: [Word] {
-        simdSolver.allWordleWords
+        turboSolver.allWordleWords
     }
 
     public init(words: [String]) {
-        self.simdSolver = SIMDWordleSolver(words: words)
+        self.turboSolver = TurboWordleSolver(words: words)
     }
 
     public init(words: [Word]) {
-        self.simdSolver = SIMDWordleSolver(words: words)
+        self.turboSolver = TurboWordleSolver(words: words)
     }
 
     // MARK: - Solve API
@@ -50,7 +52,7 @@ public final class AdaptiveWordleSolver: @unchecked Sendable {
         green: [Int: Character] = [:],
         yellow: [Character: UInt8] = [:]
     ) async -> [Word] {
-        simdSolver.solve(excluded: excluded, green: green, yellow: yellow)
+        turboSolver.solve(excluded: excluded, green: green, yellow: yellow)
     }
 
     // MARK: - Convenience Helpers
