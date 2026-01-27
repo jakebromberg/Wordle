@@ -13,7 +13,8 @@ let package = Package(
         .library(name: "WordleLib", targets: ["WordleLib"])
     ],
     dependencies: [
-        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0")
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0"),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0")
     ],
     targets: [
         // Macro implementation (runs at compile time)
@@ -31,7 +32,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "wordle",
-            dependencies: ["WordleLib"]
+            dependencies: [
+                "WordleLib",
+                .product(name: "ArgumentParser", package: "swift-argument-parser")
+            ]
         ),
         .testTarget(
             name: "WordleTests",
