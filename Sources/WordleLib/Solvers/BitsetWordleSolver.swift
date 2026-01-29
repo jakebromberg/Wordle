@@ -6,43 +6,49 @@ import Foundation
 /// Query becomes O(1) bitwise AND operations instead of iterating through words.
 ///
 /// Memory: ~160KB for all bitsets (26 excluded + 26×5 green + 26 contains)
+///
+/// Uses ContiguousArray internally for guaranteed contiguous storage and
+/// faster iteration (avoids Objective-C bridging checks).
 public final class BitsetWordleSolver: @unchecked Sendable {
 
     /// Number of UInt64s needed to represent all words as bits
     private let bitsetSize: Int
 
-    /// Words for output
-    public let allWordleWords: [Word]
+    /// Words for output (ContiguousArray for faster indexed access)
+    public var allWordleWords: [Word] {
+        Array(_allWordleWords)
+    }
+    private let _allWordleWords: ContiguousArray<Word>
 
-    // MARK: - Precomputed Bitsets
+    // MARK: - Precomputed Bitsets (ContiguousArray for performance)
 
     /// excludedBitsets[letter]: words that DON'T contain letter (for excluded constraint)
     /// Bit i is set if word i does NOT contain the letter
-    private let excludedBitsets: [[UInt64]]  // 26 bitsets
+    private let excludedBitsets: ContiguousArray<ContiguousArray<UInt64>>
 
     /// greenBitsets[position][letter]: words with letter at position
     /// Bit i is set if word i has the letter at that position
-    private let greenBitsets: [[[UInt64]]]  // 5 × 26 bitsets
+    private let greenBitsets: ContiguousArray<ContiguousArray<ContiguousArray<UInt64>>>
 
     /// containsBitsets[letter]: words that contain letter (for yellow/required)
     /// Bit i is set if word i contains the letter
-    private let containsBitsets: [[UInt64]]  // 26 bitsets
+    private let containsBitsets: ContiguousArray<ContiguousArray<UInt64>>
 
     /// All 1s bitset (all words valid)
-    private let allOnesBitset: [UInt64]
+    private let allOnesBitset: ContiguousArray<UInt64>
 
     // MARK: - Initialization
 
     public init(words: [Word]) {
-        self.allWordleWords = words
+        self._allWordleWords = ContiguousArray(words)
 
         // Calculate bitset size (ceil(wordCount / 64))
         let wordCount = words.count
         self.bitsetSize = (wordCount + 63) / 64
 
         // Initialize all bitsets
-        let zeroBitset = [UInt64](repeating: 0, count: bitsetSize)
-        var allOnes = [UInt64](repeating: UInt64.max, count: bitsetSize)
+        let zeroBitset = ContiguousArray<UInt64>(repeating: 0, count: bitsetSize)
+        var allOnes = ContiguousArray<UInt64>(repeating: UInt64.max, count: bitsetSize)
         // Clear unused bits in last element
         let usedBits = wordCount % 64
         if usedBits > 0 {
@@ -51,13 +57,24 @@ public final class BitsetWordleSolver: @unchecked Sendable {
         self.allOnesBitset = allOnes
 
         // Build excludedBitsets (words NOT containing letter)
-        var excluded = [[UInt64]](repeating: zeroBitset, count: 26)
+        var excluded = ContiguousArray<ContiguousArray<UInt64>>()
+        excluded.reserveCapacity(26)
+        for _ in 0..<26 { excluded.append(zeroBitset) }
 
         // Build containsBitsets (words containing letter)
-        var contains = [[UInt64]](repeating: zeroBitset, count: 26)
+        var contains = ContiguousArray<ContiguousArray<UInt64>>()
+        contains.reserveCapacity(26)
+        for _ in 0..<26 { contains.append(zeroBitset) }
 
         // Build greenBitsets (words with letter at position)
-        var green = [[[UInt64]]](repeating: [[UInt64]](repeating: zeroBitset, count: 26), count: 5)
+        var green = ContiguousArray<ContiguousArray<ContiguousArray<UInt64>>>()
+        green.reserveCapacity(5)
+        for _ in 0..<5 {
+            var posArray = ContiguousArray<ContiguousArray<UInt64>>()
+            posArray.reserveCapacity(26)
+            for _ in 0..<26 { posArray.append(zeroBitset) }
+            green.append(posArray)
+        }
 
         for (wordIndex, word) in words.enumerated() {
             let bitsetIndex = wordIndex / 64
@@ -154,20 +171,20 @@ public final class BitsetWordleSolver: @unchecked Sendable {
     // MARK: - Bitset Operations
 
     @inline(__always)
-    private func andBitsets(_ a: inout [UInt64], _ b: [UInt64]) {
+    private func andBitsets(_ a: inout ContiguousArray<UInt64>, _ b: ContiguousArray<UInt64>) {
         for i in 0..<bitsetSize {
             a[i] &= b[i]
         }
     }
 
     @inline(__always)
-    private func andNotBitsets(_ a: inout [UInt64], _ b: [UInt64]) {
+    private func andNotBitsets(_ a: inout ContiguousArray<UInt64>, _ b: ContiguousArray<UInt64>) {
         for i in 0..<bitsetSize {
             a[i] &= ~b[i]
         }
     }
 
-    private func extractWords(from bitset: [UInt64]) -> [Word] {
+    private func extractWords(from bitset: ContiguousArray<UInt64>) -> [Word] {
         var results: [Word] = []
         results.reserveCapacity(bitset.reduce(0) { $0 + $1.nonzeroBitCount })
 
@@ -178,8 +195,8 @@ public final class BitsetWordleSolver: @unchecked Sendable {
             while bits != 0 {
                 let trailingZeros = bits.trailingZeroBitCount
                 let wordIndex = baseIndex + trailingZeros
-                if wordIndex < allWordleWords.count {
-                    results.append(allWordleWords[wordIndex])
+                if wordIndex < _allWordleWords.count {
+                    results.append(_allWordleWords[wordIndex])
                 }
                 bits &= bits - 1  // Clear lowest set bit
             }
