@@ -4,10 +4,10 @@ A high-performance Wordle solver written in Swift, featuring multiple solver imp
 
 ## Features
 
-- **Sub-microsecond queries**: 2-5µs for typical Wordle constraints
+- **Ultra-fast queries**: 27-361µs for any constraint combination
+- **Precomputed bitsets**: O(1) constraint intersection via bitwise AND operations
 - **SIMD vectorization**: Process 8 words simultaneously with SIMD8<UInt32>
-- **First-letter indexing**: O(1) bucket selection when first letter is known
-- **Packed word representation**: 40-bit packed words for single-instruction green checks
+- **Multiple solver backends**: Bitset, Turbo, SIMD, and more for different use cases
 - **Composable filters**: Build custom constraint pipelines with type-safe operators
 - **Compile-time macros**: Zero-overhead filter construction
 
@@ -44,7 +44,7 @@ swift run wordle benchmark --csv -o benchmark.csv
 | `--excluded` | `-e` | Gray letters (not in word) | `-e "qxz"` |
 | `--green` | `-g` | Green letters (correct position) | `-g "0:s,4:e"` |
 | `--yellow` | `-y` | Yellow letters (wrong position) | `-y "ae"` |
-| `--solver` | `-s` | Solver implementation | `-s turbo` |
+| `--solver` | `-s` | Solver implementation | `-s bitset` |
 | `--json` | | Output as JSON | `--json` |
 | `--output` | `-o` | Output file path | `-o results.json` |
 
@@ -52,7 +52,8 @@ swift run wordle benchmark --csv -o benchmark.csv
 
 | Name | Description |
 |------|-------------|
-| `turbo` | Packed words + first-letter indexing (default, fastest) |
+| `bitset` | Precomputed bitset intersection (default, fastest) |
+| `turbo` | Packed words + first-letter indexing |
 | `original` | Reference implementation, protocol-based |
 | `bitmask` | Bitmask-based filtering |
 | `position` | Full yellow position constraint support |
@@ -84,8 +85,8 @@ import WordleLib
 // Load word list
 let words = try WordList.loadBundled().compactMap(Word.init)
 
-// Create solver (turbo is fastest)
-let solver = TurboWordleSolver(words: words)
+// Create solver (bitset is fastest)
+let solver = BitsetWordleSolver(words: words)
 
 // Query with constraints
 let results = solver.solve(
@@ -93,9 +94,6 @@ let results = solver.solve(
     green: [0: "s", 4: "e"],
     yellow: ["a": 0b00110]  // 'a' not at positions 1 or 2
 )
-
-// Use helpers to build yellow constraints
-let yellow = TurboWordleSolver.yellowFromGuess([("r", 1), ("a", 2)])
 ```
 
 ### Composable Filter Architecture
@@ -161,26 +159,27 @@ The solvers use multiple advanced optimization techniques:
 
 Median times in microseconds (8,506 words, 50 iterations):
 
-| Solver | No constraints | Excluded only | Green only | Mixed | Heavy |
-|--------|----------------|---------------|------------|-------|-------|
-| Original | 688 | 907 | 569 | 745 | 973 |
-| Bitmask | 80 | 61 | 14 | 16 | 13 |
-| SIMD | 57 | 52 | 10 | 12 | 10 |
-| **Turbo** | **47** | **45** | **2** | **4** | **2** |
+| Solver | No constraints | Excluded only | Green only | Yellow only | Mixed | Heavy |
+|--------|----------------|---------------|------------|-------------|-------|-------|
+| Original | 1305 | 3381 | 1451 | 1558 | 2789 | 4031 |
+| Bitmask | 221 | 230 | 332 | 134 | 313 | 80 |
+| SIMD | 1438 | 1356 | 373 | 358 | 445 | 250 |
+| Turbo | 804 | 636 | 30 | 91 | 88 | 15 |
+| **Bitset** | **361** | **275** | **43** | **27** | **37** | **38** |
 
-The **Turbo** solver delivers:
-- **2-4µs** for typical Wordle queries (when you know some green letters)
-- **200-500x speedup** over the original implementation
-- Fastest in every scenario due to packed words and first-letter indexing
+The **Bitset** solver delivers:
+- **27-361µs** for any constraint combination
+- **10-100x speedup** over the original implementation
+- Fastest in nearly every scenario due to precomputed bitset intersection
 
-### Why Turbo is Fastest
+### Why Bitset is Fastest
 
-**TurboWordleSolver** combines multiple optimization techniques:
+**BitsetWordleSolver** uses precomputed bitsets for O(1) constraint application:
 
-- **First-letter indexing**: When `green[0]` is known, only ~327 words searched instead of 8,506
-- **Packed word comparison**: All 5 green positions checked with a single `(packed & mask) == value` operation
-- **Bucket skipping**: Entire first-letter buckets skipped if first letter is excluded
-- **Cache-friendly layout**: Parallel arrays for packed words and letter masks
+- **Precomputed bitsets**: At init, builds bitsets for each letter (excluded, green, contains)
+- **Bitwise intersection**: Query is just `result &= excludedBitset[letter]` for each constraint
+- **No iteration**: Constraints applied via AND operations, not word-by-word checks
+- **Memory tradeoff**: ~160KB of bitsets for 8,506 words enables O(constraint_count) queries
 
 ## Project Structure
 
@@ -194,11 +193,14 @@ Sources/
       ASCII.swift             # ASCII constants
       Word.swift              # Optimized word representation
     Solvers/
+      BitsetWordleSolver.swift        # Default solver (precomputed bitsets)
       OriginalWordleSolver.swift      # Reference implementation
       BitmaskWordleSolver.swift       # Bitmask-based solver
       PositionAwareWordleSolver.swift # Yellow position tracking
       SIMDWordleSolver.swift          # SIMD-accelerated solver
-      TurboWordleSolver.swift         # Default solver (packed words + indexing)
+      TurboWordleSolver.swift         # Packed words + first-letter indexing
+      BigramWordleSolver.swift        # Two-letter indexing
+      TrieWordleSolver.swift          # Trie with bitmask pruning
       ComposableWordleSolver.swift    # Composable filter architecture
     Filters/
       WordFilter.swift        # Filter protocol and basic filters

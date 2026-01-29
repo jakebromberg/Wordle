@@ -29,7 +29,7 @@ struct Solve: AsyncParsableCommand {
     var yellow: String = ""
 
     @Option(name: [.short, .customLong("solver")], help: "Solver implementation to use.")
-    var solver: SolverType = .turbo
+    var solver: SolverType = .bitset
 
     @Flag(name: .shortAndLong, help: "Show detailed timing information.")
     var verbose: Bool = false
@@ -62,6 +62,10 @@ struct Solve: AsyncParsableCommand {
         let results: [Word]
 
         switch solver {
+        case .bitset:
+            let solver = BitsetWordleSolver(words: words)
+            let yellowDict = Dictionary(uniqueKeysWithValues: yellowSet.map { ($0, UInt8(0)) })
+            results = solver.solve(excluded: excludedSet, green: greenDict, yellow: yellowDict)
         case .original:
             let solver = OriginalWordleSolver(words: words)
             results = await solver.solve(excluded: excludedSet, green: greenDict, yellow: yellowSet)
@@ -73,7 +77,6 @@ struct Solve: AsyncParsableCommand {
             results = await solver.solve(excluded: excludedSet, green: greenDict, yellow: yellowSet)
         case .turbo:
             let solver = TurboWordleSolver(words: words)
-            // Convert Set<Character> to [Character: UInt8] with no position constraints
             let yellowDict = Dictionary(uniqueKeysWithValues: yellowSet.map { ($0, UInt8(0)) })
             results = solver.solve(excluded: excludedSet, green: greenDict, yellow: yellowDict)
         case .composable:
@@ -151,6 +154,7 @@ private struct ConstraintsOutput: Encodable {
 }
 
 enum SolverType: String, ExpressibleByArgument, CaseIterable {
+    case bitset
     case turbo
     case bitmask
     case position
@@ -210,6 +214,17 @@ struct Benchmark: AsyncParsableCommand {
         let composableSolver = ComposableWordleSolver(words: words)
         let turboSolver = TurboWordleSolver(words: words)
         let simdTurboSolver = SIMDTurboSolver(words: words)
+
+        // Experimental solvers
+        let bitsetSolver = BitsetWordleSolver(words: words)
+        let bigramSolver = BigramWordleSolver(words: words)
+        let trieSolver = TrieWordleSolver(words: words)
+        let cachedSolver = CachedWordleSolver(words: words)
+        let branchFreeSolver = BranchFreeWordleSolver(words: words)
+        let widerSimdSolver = WiderSIMDWordleSolver(words: words)
+        let metalSolver = MetalWordleSolver(words: words)
+        let hybridSolver = HybridWordleSolver(words: words)
+        let cachedBitsetSolver = CachedBitsetSolver(words: words)
 
         // Pre-computed static filters using compile-time macros
         let staticFilters: [String: StaticWordleFilter] = [
@@ -303,6 +318,91 @@ struct Benchmark: AsyncParsableCommand {
                 ("SIMD Turbo", {
                     let yellowDict = Dictionary(uniqueKeysWithValues: scenario.yellow.map { ($0, UInt8(0)) })
                     let results = simdTurboSolver.solve(
+                        excluded: scenario.excluded,
+                        green: scenario.green,
+                        yellow: yellowDict
+                    )
+                    return results.count
+                }),
+                // Experimental solvers
+                ("Bitset", {
+                    let yellowDict = Dictionary(uniqueKeysWithValues: scenario.yellow.map { ($0, UInt8(0)) })
+                    let results = bitsetSolver.solve(
+                        excluded: scenario.excluded,
+                        green: scenario.green,
+                        yellow: yellowDict
+                    )
+                    return results.count
+                }),
+                ("Bigram", {
+                    let yellowDict = Dictionary(uniqueKeysWithValues: scenario.yellow.map { ($0, UInt8(0)) })
+                    let results = bigramSolver.solve(
+                        excluded: scenario.excluded,
+                        green: scenario.green,
+                        yellow: yellowDict
+                    )
+                    return results.count
+                }),
+                ("Trie", {
+                    let yellowDict = Dictionary(uniqueKeysWithValues: scenario.yellow.map { ($0, UInt8(0)) })
+                    let results = trieSolver.solve(
+                        excluded: scenario.excluded,
+                        green: scenario.green,
+                        yellow: yellowDict
+                    )
+                    return results.count
+                }),
+                ("Cached", {
+                    let yellowDict = Dictionary(uniqueKeysWithValues: scenario.yellow.map { ($0, UInt8(0)) })
+                    let results = cachedSolver.solve(
+                        excluded: scenario.excluded,
+                        green: scenario.green,
+                        yellow: yellowDict
+                    )
+                    return results.count
+                }),
+                ("BranchFree", {
+                    let yellowDict = Dictionary(uniqueKeysWithValues: scenario.yellow.map { ($0, UInt8(0)) })
+                    let results = branchFreeSolver.solve(
+                        excluded: scenario.excluded,
+                        green: scenario.green,
+                        yellow: yellowDict
+                    )
+                    return results.count
+                }),
+                ("WiderSIMD", {
+                    let yellowDict = Dictionary(uniqueKeysWithValues: scenario.yellow.map { ($0, UInt8(0)) })
+                    let results = widerSimdSolver.solve(
+                        excluded: scenario.excluded,
+                        green: scenario.green,
+                        yellow: yellowDict
+                    )
+                    return results.count
+                }),
+                ("Metal GPU", {
+                    if let metalSolver = metalSolver {
+                        let yellowDict = Dictionary(uniqueKeysWithValues: scenario.yellow.map { ($0, UInt8(0)) })
+                        let results = metalSolver.solve(
+                            excluded: scenario.excluded,
+                            green: scenario.green,
+                            yellow: yellowDict
+                        )
+                        return results.count
+                    }
+                    return -1  // Metal not available
+                }),
+                ("Hybrid", {
+                    let yellowDict = Dictionary(uniqueKeysWithValues: scenario.yellow.map { ($0, UInt8(0)) })
+                    let results = hybridSolver.solve(
+                        excluded: scenario.excluded,
+                        green: scenario.green,
+                        yellow: yellowDict
+                    )
+                    return results.count
+                }),
+                ("Cached+Bitset", {
+                    let yellowDict = Dictionary(uniqueKeysWithValues: scenario.yellow.map { ($0, UInt8(0)) })
+                    let results = cachedBitsetSolver.solve(
                         excluded: scenario.excluded,
                         green: scenario.green,
                         yellow: yellowDict
